@@ -1,0 +1,84 @@
+import streamlit as st
+import pandas as pd
+
+from utils.transcribe import transcribe_audio
+from utils.dominance import analyze_dominance
+from utils.visualization import create_chart
+from utils.tts import speak_result
+
+st.set_page_config(page_title="Dominance Detection")
+
+st.title("Speech-Based Conversational Dominance Detection")
+
+uploaded_file = st.file_uploader(
+    "Upload Conversation Audio",
+    type=["wav", "mp3"]
+)
+
+if uploaded_file:
+
+    st.audio(uploaded_file)
+
+    st.success("Audio uploaded successfully!")
+
+    with st.spinner("Transcribing audio..."):
+
+        transcript = transcribe_audio(uploaded_file)
+
+    st.subheader("Transcript")
+
+    edited_transcript = st.text_area(
+        "Edit Speaker Labels",
+        transcript,
+        height=250
+    )
+
+    st.info(
+        "Add speaker labels like:\n"
+        "Speaker A: Hello\n"
+        "Speaker B: Hi"
+    )
+
+    if st.button("Analyze Dominance"):
+
+        results = analyze_dominance(
+            edited_transcript
+        )
+
+        data = []
+
+        for speaker, values in results.items():
+
+            data.append({
+
+                "Speaker": speaker,
+                "Words": values["words"],
+                "Turns": values["turns"],
+                "Sentiment": round(values["sentiment"], 2),
+                "Score": values["score"]
+            })
+
+        df = pd.DataFrame(data)
+
+        st.subheader("Dominance Results")
+
+        st.dataframe(df)
+
+        dominant_speaker = df.loc[
+            df["Score"].idxmax()
+        ]["Speaker"]
+
+        result_text = (
+            f"{dominant_speaker} "
+            f"is the dominant speaker."
+        )
+
+        st.success(result_text)
+
+        # Graph
+        fig = create_chart(df)
+
+        st.pyplot(fig)
+
+        # Speech synthesis
+        speak_result(result_text)
